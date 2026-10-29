@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>산학 스택</title>
+<style>
+  :root {
+    --bg: #12141c;
+    --panel: #1b1e29;
+    --line: #2a2e3d;
+    --text: #e9ebf2;
+    --muted: #8a90a6;
+    --accent: #ffd65a;
+    --font: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: radial-gradient(1200px 600px at 50% -10%, #23283a 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: var(--font);
+    overflow-x: hidden;
+  }
+  .app {
+    display: grid;
+    grid-template-columns: 220px auto 280px;
+    gap: 20px;
+    justify-content: center;
+    align-items: start;
+    padding: 20px 16px;
+    min-height: 100%;
+  }
+  h1 { margin: 0; font-size: 26px; letter-spacing: -0.02em; }
+  h1 em { font-style: normal; color: var(--accent); }
+  .sub { margin: 4px 0 16px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+  .box {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+  }
+  .label { font-size: 12px; color: var(--muted); margin-bottom: 8px; display: flex; justify-content: space-between; }
+  .label b { color: var(--accent); font-weight: 700; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+  .stat span { display: block; font-size: 11px; color: var(--muted); }
+  .stat b { font-size: 20px; font-variant-numeric: tabular-nums; }
+  .stat.wide { grid-column: span 2; }
+  .help { font-size: 12px; color: var(--muted); line-height: 1.7; }
+  .help kbd {
+    display: inline-block; min-width: 20px; padding: 0 5px; border-radius: 4px;
+    background: #2a2e3d; color: var(--text); font: 11px/18px var(--font); text-align: center;
+  }
+  .help p { margin: 6px 0 0; }
+  .board-wrap { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 20px 60px rgba(0,0,0,.45); }
+  canvas { display: block; }
+  .overlay {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; padding: 24px; text-align: center; background: rgba(14,16,24,.86); backdrop-filter: blur(3px);
+  }
+  .overlay[hidden] { display: none; }
+  .overlay h2 { margin: 0; font-size: 28px; }
+  .overlay p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.6; max-width: 300px; }
+  .overlay button, .touch button {
+    font: 700 15px var(--font); color: #1a1a1a; background: var(--accent); border: 0; border-radius: 10px;
+    padding: 12px 22px; cursor: pointer;
+  }
+  .rules { text-align: left; font-size: 13px; color: var(--text); line-height: 1.7; margin: 4px 0 6px; padding-left: 18px; }
+  .toast {
+    position: absolute; left: 50%; top: 32%; transform: translate(-50%, -50%) scale(.9); pointer-events: none;
+    background: rgba(0,0,0,.72); border: 1px solid rgba(255,214,90,.5); color: var(--accent);
+    font-weight: 800; font-size: 17px; padding: 10px 16px; border-radius: 10px; white-space: nowrap;
+    opacity: 0; transition: opacity .2s, transform .2s;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  .touch { display: none; gap: 8px; justify-content: center; margin-top: 12px; }
+  .touch button { padding: 12px 0; width: 58px; background: #2a2e3d; color: var(--text); font-size: 18px; touch-action: manipulation; }
+  #dex { display: flex; flex-direction: column; gap: 8px; }
+  .dex-group { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .dex-group .g { width: 100%; font-size: 11px; color: var(--muted); }
+  .chip {
+    font-size: 12px; padding: 3px 7px; border-radius: 6px; border: 1px dashed #3a3f52; color: #5b6075;
+    transition: all .3s;
+  }
+  .chip.met { border: 1px solid var(--c); background: var(--c); color: #fff; font-weight: 700; }
+  .chip.pop { transform: scale(1.18); }
+  #log { list-style: none; margin: 0; padding: 0; font-size: 12px; line-height: 1.5; min-height: 140px; }
+  #log li { padding: 5px 0; border-bottom: 1px solid var(--line); animation: slide .3s ease-out; }
+  #log li:last-child { border-bottom: 0; }
+  #log li i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; background: var(--c); }
+  #log li span { color: var(--muted); }
+  #log .empty { color: var(--muted); }
+  @keyframes slide { from { opacity: 0; transform: translateX(10px); } }
+  .source { font-size: 11px; color: var(--muted); line-height: 1.5; }
+  .source a { color: var(--muted); }
+
+  @media (max-width: 920px) {
+    .app { grid-template-columns: 1fr; justify-items: center; gap: 12px; }
+    .left, .right { width: 100%; max-width: 420px; }
+    .left { order: 1; } .center { order: 2; } .right { order: 3; }
+    .left .help, .left .next-box { display: none; }
+    .stats { grid-template-columns: repeat(4, 1fr); }
+    .stat.wide { grid-column: auto; }
+    .touch { display: flex; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="left">
+    <h1>산학 <em>스택</em></h1>
+    <p class="sub">삼육대학교 산학협력단 직원 카드로 쌓고, 맞추고, 결재하세요.</p>
+    <div class="stats">
+      <div class="stat wide"><span>점수</span><b id="score">0</b></div>
+      <div class="stat"><span>레벨</span><b id="level">1</b></div>
+      <div class="stat"><span>최고</span><b id="best">0</b></div>
+    </div>
+    <div class="box next-box"><div class="label">다음 블록</div><canvas id="next"></canvas></div>
+    <div class="box help">
+      <kbd>←</kbd> <kbd>→</kbd> 이동 &nbsp; <kbd>↑</kbd> 회전<br>
+      <kbd>↓</kbd> 천천히 &nbsp; <kbd>Space</kbd> 바로 내리기<br>
+      <kbd>P</kbd> 일시정지
+      <p>한 줄을 다 채우거나, 같은 팀 카드 <b>4장 이상</b>을 붙이면 처리됩니다. 처리된 뒤 남은 카드는 아래로 떨어져 <b>연쇄</b>가 일어날 수 있어요. 빨간 <b>결재</b> 카드는 가로·세로 한 줄씩을 한 번에 지웁니다.</p>
+    </div>
+  </aside>
+
+  <main class="center">
+    <div class="board-wrap">
+      <canvas id="board"></canvas>
+      <div id="toast" class="toast"></div>
+      <div id="overlay" class="overlay">
+        <h2>산학 <span style="color:var(--accent)">스택</span></h2>
+        <ul class="rules">
+          <li>가로 한 줄 꽉 채우기 → 줄 정리</li>
+          <li>같은 팀 카드 4장 이상 연결 → 협업 처리</li>
+          <li>빨간 <b>결재</b> 카드 → 가로·세로 정리</li>
+          <li>직원 14명을 모두 만나면 보너스!</li>
+        </ul>
+        <button id="startBtn">시작하기 (Enter)</button>
+      </div>
+    </div>
+    <div class="touch">
+      <button data-act="left" aria-label="왼쪽">◀</button>
+      <button data-act="rotate" aria-label="회전">⟳</button>
+      <button data-act="right" aria-label="오른쪽">▶</button>
+      <button data-act="soft" aria-label="아래로">▼</button>
+      <button data-act="hard" aria-label="바로 내리기">⤓</button>
+    </div>
+  </main>
+
+  <aside class="right">
+    <div class="box"><div class="label">직원 도감 <b id="metCount">0/0</b></div><div id="dex"></div></div>
+    <div class="box"><div class="label">결재 처리 내역</div><ol id="log"><li class="empty">아직 처리한 카드가 없어요.</li></ol></div>
+    <p class="source">데이터: <a href="https://www.syu.ac.kr/industry-academic-research/industry-academic-consortium/" target="_blank" rel="noopener">삼육대학교 산학협력단 ‘업무별 연락처’</a> (scrape.py로 수집, 연락처 제외)</p>
+  </aside>
+</div>
+
+<script src="staff.js"></script>
+<script>
+(() => {
+  const COLS = 8, ROWS = 14, CLEAR_MS = 320;
+  const FONT = getComputedStyle(document.documentElement).getPropertyValue('--font');
+
+  // 팀을 게임용 색 그룹으로 묶는다
+  const GROUPS = [
+    { label: '단 지도부',     teams: ['산학협력단'],               color: '#7c6cf0' },
+    { label: '연구기획·지원', teams: ['산학연구기획팀', '연구지원팀'], color: '#3a8ee6' },
+    { label: '기술사업화',    teams: ['기술사업화팀', '창업보육센터'], color: '#25a873' },
+    { label: '재무회계',      teams: ['재무회계팀'],               color: '#e57a2e' },
+    { label: '학술활동지원',  teams: ['학술활동지원팀'],            color: '#dc4f82' },
+    { label: '구매자산·감사', teams: ['구매자산팀', '감사팀'],        color: '#16a6ab' },
+  ];
+  const STAMP_COLOR = '#d23c3c';
+
+  const STAFF = (window.STAFF || []).map((p, id) => {
+    const g = GROUPS.findIndex(gr => gr.teams.includes(p.team));
+    return { ...p, id, g: g < 0 ? 0 : g };
+  });
+  const members = GROUPS.map((_, gi) => STAFF.filter(p => p.g === gi));
+  const liveGroups = GROUPS.map((_, gi) => gi).filter(gi => members[gi].length);
+  const BOSS = STAFF.find(p => p.title === '단장') || STAFF[0];
+
+  const SHAPES = [
+    { weight: 4, cells: [[0, 0], [1, 0]] },           // 2장
+    { weight: 3, cells: [[-1, 0], [0, 0], [1, 0]] },  // 3장 일자
+    { weight: 3, cells: [[0, -1], [0, 0], [1, 0]] },  // 3장 꺾쇠
+  ];
+
+  const $ = id => document.getElementById(id);
+  const boardCv = $('board'), bctx = boardCv.getContext('2d');
+  const nextCv = $('next'), nctx = nextCv.getContext('2d');
+  const overlay = $('overlay');
+
+  let board, piece, nextPiece, state = 'ready', paused = false;
+  let score, level, clearedCards, pieceCount, dropTimer, chain, clearing, clearT, met, allMetBonus;
+  let best = 0;
+  try { best = +localStorage.getItem('sanhak-stack-best') || 0; } catch (e) {}
+  let CELL = 46;
+
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+  function randomPiece() {
+    pieceCount++;
+    if (pieceCount > 4 && Math.random() < 0.07) {
+      return { cells: [{ dx: 0, dy: 0, card: { p: BOSS.id, g: BOSS.g, special: true } }] };
+    }
+    let r = Math.random() * SHAPES.reduce((s, sh) => s + sh.weight, 0), shape = SHAPES[0];
+    for (const sh of SHAPES) { if ((r -= sh.weight) < 0) { shape = sh; break; } }
+    const gi = pick(liveGroups);
+    return { cells: shape.cells.map(([dx, dy]) => ({ dx, dy, card: { p: pick(members[gi]).id, g: gi } })) };
+  }
+
+  function collides(cells, x, y) {
+    return cells.some(({ dx, dy }) => {
+      const c = x + dx, r = y + dy;
+      return c < 0 || c >= COLS || r >= ROWS || (r >= 0 && board[r][c]);
+    });
+  }
+
+  function spawn() {
+    piece = nextPiece;
+    nextPiece = randomPiece();
+    piece.x = Math.floor(COLS / 2) - 1;
+    piece.y = -Math.min(...piece.cells.map(c => c.dy));
+    dropTimer = 0;
+    state = 'play';
+    drawNext();
+    if (collides(piece.cells, piece.x, piece.y)) gameOver();
+  }
+
+  function move(dx) {
+    if (!piece || collides(piece.cells, piece.x + dx, piece.y)) return;
+    piece.x += dx;
+  }
+
+  function rotate() {
+    if (!piece || piece.cells.length === 1) return;
+    const cells = piece.cells.map(({ dx, dy, card }) => ({ dx: -dy, dy: dx, card }));
+    for (const [kx, ky] of [[0, 0], [-1, 0], [1, 0], [0, -1], [-2, 0], [2, 0]]) {
+      if (!collides(cells, piece.x + kx, piece.y + ky)) {
+        piece.cells = cells; piece.x += kx; piece.y += ky; return;
+      }
+    }
+  }
+
+  function softDrop() {
+    if (!piece) return;
+    if (collides(piece.cells, piece.x, piece.y + 1)) { lock(); return; }
+    piece.y++; score++; dropTimer = 0; updateStats();
+  }
+
+  function hardDrop() {
+    if (!piece) return;
+    let d = 0;
+    while (!collides(piece.cells, piece.x, piece.y + 1)) { piece.y++; d++; }
+    score += d * 2;
+    updateStats();
+    lock();
+  }
+
+  function lock() {
+    for (const { dx, dy, card } of piece.cells) {
+      const r = piece.y + dy, c = piece.x + dx;
+      if (r < 0) { gameOver(); return; }
+      board[r][c] = card;
+    }
+    piece = null;
+    chain = 0;
+    resolve();
+  }
+
+  // 줄 정리 + 같은 팀 4장 이상 + 결재 카드(가로·세로)
+  function findClears() {
+    const set = new Set();
+    const res = { set, rows: 0, match: 0, matchGroup: -1, stamps: 0 };
+    for (let r = 0; r < ROWS; r++) {
+      if (board[r].every(Boolean)) { res.rows++; for (let c = 0; c < COLS; c++) set.add(r * COLS + c); }
+    }
+    const seen = new Set();
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      const cell = board[r][c], k = r * COLS + c;
+      if (!cell || cell.special || seen.has(k)) continue;
+      const group = [], stack = [[r, c]];
+      seen.add(k);
+      while (stack.length) {
+        const [cr, cc] = stack.pop();
+        group.push(cr * COLS + cc);
+        for (const [nr, nc] of [[cr + 1, cc], [cr - 1, cc], [cr, cc + 1], [cr, cc - 1]]) {
+          const nk = nr * COLS + nc, n = board[nr]?.[nc];
+          if (nc < 0 || nc >= COLS || !n || n.special || n.g !== cell.g || seen.has(nk)) continue;
+          seen.add(nk); stack.push([nr, nc]);
+        }
+      }
+      if (group.length >= 4) {
+        group.forEach(x => set.add(x));
+        if (group.length > res.match) res.matchGroup = cell.g;
+        res.match += group.length;
+      }
+    }
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      if (!board[r][c]?.special) continue;
+      res.stamps++;
+      for (let i = 0; i < COLS; i++) if (board[r][i]) set.add(r * COLS + i);
+      for (let i = 0; i < ROWS; i++) if (board[i][c]) set.add(i * COLS + c);
+    }
+    return res;
+  }
+
+  function resolve() {
+    const res = findClears();
+    if (!res.set.size) { spawn(); return; }
+    clearing = res; clearT = 0; state = 'clearing';
+  }
+
+  function finishClear() {
+    const { set, rows, match, matchGroup, stamps } = clearing;
+    const people = new Map();
+    for (const k of set) {
+      const r = Math.floor(k / COLS), c = k % COLS;
+      const card = board[r][c];
+      if (card) people.set(card.p, card);
+      board[r][c] = null;
+    }
+    const base = rows * 100 + match * 20 + stamps * 150 + set.size * 5;
+    const pts = base * (chain + 1);
+    score += pts;
+    clearedCards += set.size;
+    level = 1 + Math.floor(clearedCards / 30);
+
+    const parts = [];
+    if (stamps) parts.push('단장 결재 도장!');
+    if (rows) parts.push(`${rows}줄 정리`);
+    if (match) parts.push(`${GROUPS[matchGroup].label} 협업`);
+    if (chain) parts.push(`${chain + 1}연쇄!`);
+    toast(`${parts.join(' · ')}  +${pts}`);
+
+    for (const card of people.values()) logPerson(card);
+
+    // 남은 카드는 칸마다 아래로 떨어진다
+    for (let c = 0; c < COLS; c++) {
+      const col = [];
+      for (let r = ROWS - 1; r >= 0; r--) if (board[r][c]) col.push(board[r][c]);
+      for (let r = ROWS - 1, i = 0; r >= 0; r--, i++) board[r][c] = col[i] || null;
+    }
+    chain++;
+    updateStats();
+    resolve();
+  }
+
+  function logPerson(card) {
+    const p = STAFF[card.p];
+    const log = $('log');
+    log.querySelector('.empty')?.remove();
+    const li = document.createElement('li');
+    li.style.setProperty('--c', card.special ? STAMP_COLOR : GROUPS[p.g].color);
+    li.innerHTML = `<i></i><b></b> <span></span>`;
+    li.querySelector('b').textContent = `${p.name} ${p.title}`.trim();
+    li.querySelector('span').textContent = `· ${p.duties.join(' / ')}`;
+    log.prepend(li);
+    while (log.children.length > 7) log.lastChild.remove();
+
+    if (!met.has(p.id)) {
+      met.add(p.id);
+      const chip = document.querySelector(`.chip[data-id="${p.id}"]`);
+      chip.classList.add('met', 'pop');
+      setTimeout(() => chip.classList.remove('pop'), 300);
+      if (met.size === STAFF.length && !allMetBonus) {
+        allMetBonus = true;
+        score += 1000;
+        setTimeout(() => toast('산학협력단 전원 만남!  +1000'), 700);
+      }
+    }
+    $('metCount').textContent = `${met.size}/${STAFF.length}`;
+  }
+
+  let toastTimer;
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 1100);
+  }
+
+  function updateStats() {
+    $('score').textContent = score.toLocaleString();
+    $('level').textContent = level;
+    if (score > best) {
+      best = score;
+      try { localStorage.setItem('sanhak-stack-best', best); } catch (e) {}
+    }
+    $('best').textContent = best.toLocaleString();
+  }
+
+  const interval = () => Math.max(110, 850 - (level - 1) * 75);
+
+  function buildDex() {
+    const dex = $('dex');
+    dex.innerHTML = '';
+    GROUPS.forEach((g, gi) => {
+      if (!members[gi].length) return;
+      const wrap = document.createElement('div');
+      wrap.className = 'dex-group';
+      wrap.innerHTML = `<div class="g"></div>`;
+      wrap.firstChild.textContent = g.label;
+      for (const p of members[gi]) {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.dataset.id = p.id;
+        chip.style.setProperty('--c', g.color);
+        chip.textContent = p.name;
+        chip.title = `${p.team} ${p.title} · ${p.duties.join(' / ')}`;
+        wrap.appendChild(chip);
+      }
+      dex.appendChild(wrap);
+    });
+    $('metCount').textContent = `0/${STAFF.length}`;
+  }
+
+  function start() {
+    board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+    score = 0; level = 1; clearedCards = 0; pieceCount = 0; chain = 0; paused = false;
+    met = new Set(); allMetBonus = false;
+    buildDex();
+    $('log').innerHTML = '<li class="empty">아직 처리한 카드가 없어요.</li>';
+    overlay.hidden = true;
+    nextPiece = randomPiece();
+    updateStats();
+    spawn();
+  }
+
+  function gameOver() {
+    state = 'over'; piece = null;
+    updateStats();
+    showOverlay('업무 마감!', `점수 ${score.toLocaleString()}점 · 만난 직원 ${met.size}/${STAFF.length}명`, '다시 하기 (Enter)');
+  }
+
+  function togglePause() {
+    if (state !== 'play' && !paused) return;
+    paused = !paused;
+    if (paused) showOverlay('잠시 휴식', '커피 한 잔 하고 오세요.', '계속하기 (P)');
+    else overlay.hidden = true;
+  }
+
+  function showOverlay(title, msg, btn) {
+    overlay.innerHTML = `<h2></h2><p></p><button id="startBtn"></button>`;
+    overlay.querySelector('h2').textContent = title;
+    overlay.querySelector('p').textContent = msg;
+    overlay.querySelector('button').textContent = btn;
+    overlay.querySelector('button').onclick = () => (paused ? togglePause() : start());
+    overlay.hidden = false;
+  }
+
+  // ---- 그리기 ----
+  function rr(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h);
+  }
+
+  function drawCard(ctx, px, py, s, card, { alpha = 1, flash = 0, ghost = false } = {}) {
+    const p = STAFF[card.p];
+    const color = card.special ? STAMP_COLOR : GROUPS[card.g].color;
+    const pad = Math.max(1.5, s * 0.04), w = s - pad * 2, rad = s * 0.16;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    if (ghost) {
+      rr(ctx, px + pad + 1, py + pad + 1, w - 2, w - 2, rad);
+      ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.stroke();
+      ctx.restore(); return;
+    }
+    rr(ctx, px + pad, py + pad, w, w, rad);
+    ctx.fillStyle = color; ctx.fill();
+    rr(ctx, px + pad, py + pad, w, w * 0.4, rad);
+    ctx.fillStyle = 'rgba(255,255,255,.16)'; ctx.fill();
+    if (card.special) {
+      ctx.beginPath();
+      ctx.arc(px + s / 2, py + s / 2, w * 0.42, 0, Math.PI * 2);
+      ctx.strokeStyle = '#ffd65a'; ctx.lineWidth = 2; ctx.stroke();
+    }
+    if (flash) {
+      rr(ctx, px + pad, py + pad, w, w, rad);
+      ctx.fillStyle = `rgba(255,255,255,${flash})`; ctx.fill();
+    }
+    const sub = card.special ? '결재' : p.title;
+    const twoLine = s >= 36 && sub;
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `700 ${Math.round(s * 0.27)}px ${FONT}`;
+    ctx.fillText(p.name, px + s / 2, py + s * (twoLine ? 0.42 : 0.52), w - 2);
+    if (twoLine) {
+      ctx.globalAlpha = alpha * 0.85;
+      ctx.font = `500 ${Math.round(s * 0.18)}px ${FONT}`;
+      ctx.fillText(sub, px + s / 2, py + s * 0.72, w - 2);
+    }
+    ctx.restore();
+  }
+
+  function draw() {
+    const W = COLS * CELL, H = ROWS * CELL;
+    bctx.fillStyle = '#161923';
+    bctx.fillRect(0, 0, W, H);
+    bctx.strokeStyle = 'rgba(255,255,255,.04)';
+    bctx.lineWidth = 1;
+    for (let c = 1; c < COLS; c++) { bctx.beginPath(); bctx.moveTo(c * CELL + .5, 0); bctx.lineTo(c * CELL + .5, H); bctx.stroke(); }
+    for (let r = 1; r < ROWS; r++) { bctx.beginPath(); bctx.moveTo(0, r * CELL + .5); bctx.lineTo(W, r * CELL + .5); bctx.stroke(); }
+    if (!board) return;
+
+    const flashOn = state === 'clearing' ? 0.35 + 0.65 * Math.abs(Math.sin(clearT / CLEAR_MS * Math.PI * 2.5)) : 0;
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      const card = board[r][c];
+      if (!card) continue;
+      const clearingNow = state === 'clearing' && clearing.set.has(r * COLS + c);
+      drawCard(bctx, c * CELL, r * CELL, CELL, card, { flash: clearingNow ? flashOn : 0 });
+    }
+    if (piece && state === 'play') {
+      let gy = piece.y;
+      while (!collides(piece.cells, piece.x, gy + 1)) gy++;
+      for (const { dx, dy, card } of piece.cells) {
+        if (gy + dy >= 0 && gy !== piece.y) drawCard(bctx, (piece.x + dx) * CELL, (gy + dy) * CELL, CELL, card, { ghost: true, alpha: .6 });
+      }
+      for (const { dx, dy, card } of piece.cells) {
+        if (piece.y + dy >= 0) drawCard(bctx, (piece.x + dx) * CELL, (piece.y + dy) * CELL, CELL, card);
+      }
+    }
+  }
+
+  function drawNext() {
+    const s = Math.round(CELL * 0.8), W = 4 * s, H = 3 * s;
+    nctx.clearRect(0, 0, W, H);
+    if (!nextPiece) return;
+    const xs = nextPiece.cells.map(c => c.dx), ys = nextPiece.cells.map(c => c.dy);
+    const minX = Math.min(...xs), minY = Math.min(...ys);
+    const pw = (Math.max(...xs) - minX + 1) * s, ph = (Math.max(...ys) - minY + 1) * s;
+    const ox = (W - pw) / 2, oy = (H - ph) / 2;
+    for (const { dx, dy, card } of nextPiece.cells) drawCard(nctx, ox + (dx - minX) * s, oy + (dy - minY) * s, s, card);
+  }
+
+  function fitCanvas(cv, ctx, w, h) {
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = w * dpr; cv.height = h * dpr;
+    cv.style.width = w + 'px'; cv.style.height = h + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function resize() {
+    const narrow = innerWidth <= 920;
+    const byH = (innerHeight - (narrow ? 210 : 44)) / ROWS;
+    const byW = (narrow ? innerWidth - 32 : innerWidth - 560) / COLS;
+    CELL = Math.max(28, Math.min(52, Math.floor(Math.min(byH, byW))));
+    fitCanvas(boardCv, bctx, COLS * CELL, ROWS * CELL);
+    const s = Math.round(CELL * 0.8);
+    fitCanvas(nextCv, nctx, 4 * s, 3 * s);
+    drawNext();
+  }
+
+  // ---- 입력 ----
+  const actions = { left: () => move(-1), right: () => move(1), rotate, soft: softDrop, hard: hardDrop };
+  const playing = () => state === 'play' && !paused;
+
+  addEventListener('keydown', e => {
+    const k = e.key;
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' '].includes(k)) e.preventDefault();
+    if (k === 'Enter' && (state === 'ready' || state === 'over')) { start(); return; }
+    if (k === 'p' || k === 'P' || k === 'Escape') { togglePause(); return; }
+    if (!playing()) return;
+    if (k === 'ArrowLeft') actions.left();
+    else if (k === 'ArrowRight') actions.right();
+    else if (k === 'ArrowUp' || k === 'x' || k === 'X') actions.rotate();
+    else if (k === 'ArrowDown') actions.soft();
+    else if (k === ' ') actions.hard();
+  });
+
+  document.querySelectorAll('.touch button').forEach(btn => {
+    let timer;
+    const stop = () => clearInterval(timer);
+    btn.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      if (!playing()) return;
+      const act = actions[btn.dataset.act];
+      act();
+      if (['left', 'right', 'soft'].includes(btn.dataset.act)) timer = setInterval(() => playing() && act(), 110);
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => btn.addEventListener(ev, stop));
+  });
+  $('startBtn').onclick = start;
+
+  let last = performance.now();
+  function frame(t) {
+    const dt = Math.min(50, t - last);
+    last = t;
+    if (!paused) {
+      if (state === 'play') {
+        dropTimer += dt;
+        if (dropTimer >= interval()) { dropTimer = 0; softDropAuto(); }
+      } else if (state === 'clearing') {
+        clearT += dt;
+        if (clearT >= CLEAR_MS) finishClear();
+      }
+    }
+    draw();
+    requestAnimationFrame(frame);
+  }
+  function softDropAuto() {
+    if (collides(piece.cells, piece.x, piece.y + 1)) lock(); else piece.y++;
+  }
+
+  addEventListener('resize', resize);
+  resize();
+  buildDex();
+  $('best').textContent = best.toLocaleString();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
